@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Earth Invaders</title>
+  <style>
+    :root {
+      --space: #15143a;
+      --space2: #29235c;
+      --pink: #ff5c8a;
+      --blue: #4dabf7;
+      --purple: #9b5de5;
+      --green: #19b889;
+      --yellow: #ffd166;
+      --white: #ffffff;
+      --dark: #202030;
+      --card: rgba(255,255,255,0.95);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Trebuchet MS", Arial, sans-serif;
+      color: var(--white);
+      background:
+        radial-gradient(circle at 15% 15%, rgba(255,255,255,.18) 0 2px, transparent 3px),
+        radial-gradient(circle at 70% 35%, rgba(255,255,255,.14) 0 2px, transparent 3px),
+        linear-gradient(135deg, var(--space), var(--space2));
+      background-size: 150px 150px, 210px 210px, auto;
+    }
+
+    header { text-align: center; padding: 22px 16px 10px; }
+    h1 { font-size: clamp(2.1rem, 6vw, 4rem); margin: 0; text-shadow: 0 5px 0 rgba(0,0,0,.25); }
+    .subtitle { color: #e8e8ff; font-size: 1.15rem; margin: 8px auto; max-width: 800px; }
+    main { max-width: 1120px; margin: 0 auto; padding: 16px; }
+
+    .screen { display: none; }
+    .screen.active { display: block; animation: fade .25s ease; }
+    @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .top-bar, .actions, .badge-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+    .top-bar { margin: 14px 0; }
+
+    .pill {
+      border: 2px solid rgba(255,255,255,.35);
+      background: rgba(255,255,255,.13);
+      border-radius: 999px;
+      padding: 9px 14px;
+      font-weight: 900;
+    }
+
+    .card {
+      background: var(--card);
+      color: var(--dark);
+      border-radius: 26px;
+      padding: clamp(18px, 3vw, 32px);
+      box-shadow: 0 16px 35px rgba(0,0,0,.25);
+      border: 4px solid rgba(255,255,255,.55);
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 22px;
+      align-items: center;
+    }
+    @media (max-width: 800px) { .hero { grid-template-columns: 1fr; } }
+
+    .cover-image-wrap {
+      position: relative;
+      border-radius: 25px;
+      overflow: hidden;
+      min-height: 250px;
+      background: linear-gradient(160deg, #21114d, #5a2c91);
+      box-shadow: inset 0 0 0 4px rgba(255,255,255,.18), 0 14px 28px rgba(0,0,0,.25);
+    }
+
+    .cover-image {
+      width: 100%;
+      height: 100%;
+      min-height: 250px;
+      object-fit: cover;
+      display: block;
+      animation: coverPulse 5s infinite ease-in-out;
+    }
+
+    .floating-ufo, .floating-alien {
+      position: absolute;
+      z-index: 2;
+      filter: drop-shadow(0 6px 0 rgba(0,0,0,.2));
+      pointer-events: none;
+    }
+    .floating-ufo { top: 12px; left: 18px; font-size: 3.4rem; animation: flyAround 4s infinite ease-in-out; }
+    .floating-alien { right: 18px; bottom: 18px; font-size: 3.2rem; animation: alienBounce 2.2s infinite ease-in-out; }
+
+    .unit-icon, .alien-status, .badge, .memory-card, .option.correct { animation: softGlow 3s infinite ease-in-out; }
+
+    @keyframes coverPulse { 0%,100% { transform: scale(1); filter: saturate(1); } 50% { transform: scale(1.03); filter: saturate(1.18); } }
+    @keyframes flyAround { 0%,100% { transform: translate(0,0) rotate(-7deg); } 50% { transform: translate(18px, 10px) rotate(8deg); } }
+    @keyframes alienBounce { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-14px) rotate(4deg); } }
+    @keyframes softGlow { 0%,100% { filter: drop-shadow(0 0 0 rgba(255,209,102,0)); } 50% { filter: drop-shadow(0 0 8px rgba(255,209,102,.55)); } }
+
+    .btn {
+      border: 0;
+      border-radius: 18px;
+      padding: 12px 16px;
+      color: white;
+      background: var(--pink);
+      font-size: 1rem;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 7px 0 rgba(0,0,0,.20);
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: translateY(4px); box-shadow: 0 3px 0 rgba(0,0,0,.20); }
+    .btn.blue { background: var(--blue); }
+    .btn.green { background: var(--green); }
+    .btn.purple { background: var(--purple); }
+    .btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+
+    .unit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(235px, 1fr)); gap: 16px; }
+    .unit-card {
+      background: white;
+      color: var(--dark);
+      border-radius: 22px;
+      padding: 18px;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 10px 22px rgba(0,0,0,.20);
+    }
+    .unit-card:hover { outline: 4px solid var(--yellow); transform: translateY(-3px); }
+    .unit-icon { font-size: 3rem; }
+    .unit-title { font-size: 1.25rem; font-weight: 900; margin: 8px 0; }
+    .unit-desc, .small-note { color: #4b4b63; line-height: 1.35; }
+
+    .dots { display: flex; gap: 7px; margin: 12px 0; }
+    .dot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; color: white; background: #c7c7d5; font-weight: 900; }
+    .dot.done { background: var(--green); }
+
+    .mission-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .badge { background: #eef2ff; color: #3730a3; border-radius: 999px; padding: 8px 11px; font-weight: 900; }
+    .alien-status { background: #fff7d6; color: #6b4b00; border-radius: 18px; padding: 14px; margin: 14px 0; font-weight: 900; }
+    .progress-wrap { height: 18px; border-radius: 999px; overflow: hidden; background: #e5e7ef; border: 2px solid #d0d3df; margin: 12px 0 18px; }
+    .progress { width: 0%; height: 100%; background: linear-gradient(90deg, var(--green), var(--yellow), var(--pink)); transition: width .3s ease; }
+
+    .question-box { background: #f2f5ff; border: 3px dashed #c7d2fe; border-radius: 20px; padding: 18px; margin: 12px 0; }
+    .prompt { font-size: 1.35rem; font-weight: 900; margin: 0 0 8px; }
+    .example { color: #4b4b63; margin: 0 0 14px; }
+    .options, .memory-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; }
+    .option, .memory-card {
+      min-height: 60px;
+      border-radius: 18px;
+      padding: 12px;
+      font-family: inherit;
+      font-weight: 900;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .option { background: white; color: var(--dark); border: 3px solid #dfe3f0; }
+    .option.correct { background: #d1fae5; border-color: #10b981; }
+    .option.wrong { background: #ffe4e6; border-color: #fb7185; }
+    .memory-card { border: 0; background: linear-gradient(135deg, var(--purple), var(--blue)); color: white; box-shadow: 0 6px 0 rgba(0,0,0,.15); }
+    .memory-card.revealed, .memory-card.matched { background: white; color: var(--dark); border: 3px solid #9ed7ff; box-shadow: none; }
+    .memory-card.matched { background: #d1fae5; border-color: #10b981; }
+    input[type="text"] { width: min(100%, 420px); padding: 14px; border-radius: 16px; border: 3px solid #dfe3f0; font-size: 1rem; font-family: inherit; }
+    .feedback { min-height: 32px; margin-top: 12px; font-size: 1.15rem; font-weight: 900; }
+    .final-screen { text-align: center; }
+    .trophy { font-size: 6rem; }
+
+
+    /* Video game style home menu */
+    .home-menu-card { padding: 0; overflow: hidden; }
+    .home-cover-full {
+      position: relative;
+      min-height: min(72vh, 720px);
+      border-radius: 22px;
+      overflow: hidden;
+      background: #11143a;
+      box-shadow: 0 0 35px rgba(255, 221, 87, 0.55);
+    }
+    .home-cover-full .cover-image {
+      width: 100%;
+      height: 100%;
+      min-height: min(72vh, 720px);
+      object-fit: cover;
+      display: block;
+      border: 4px solid #fff;
+      box-shadow: 0 0 25px rgba(255, 221, 87, 0.7);
+    }
+    .home-menu-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: clamp(18px, 4vw, 42px);
+      background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0) 48%);
+      pointer-events: none;
+    }
+    .game-menu {
+      pointer-events: auto;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 14px;
+      background: rgba(8, 12, 38, .74);
+      border: 3px solid rgba(255,255,255,.55);
+      border-radius: 24px;
+      padding: 16px;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 12px 28px rgba(0,0,0,.35);
+    }
+    .start-btn {
+      font-size: clamp(1.15rem, 3vw, 1.8rem);
+      padding: 16px 26px;
+      border: 4px solid #fff;
+      background: linear-gradient(180deg, #ffe066, #ff9f1c);
+      color: #3b1678;
+      text-shadow: 0 2px rgba(255,255,255,.45);
+      animation: startPulse 1.35s infinite ease-in-out;
+    }
+    @keyframes startPulse {
+      0%,100% { transform: scale(1); box-shadow: 0 7px 0 rgba(0,0,0,.25), 0 0 14px rgba(255, 221, 87, .35); }
+      50% { transform: scale(1.06); box-shadow: 0 7px 0 rgba(0,0,0,.25), 0 0 28px rgba(255, 221, 87, .95); }
+    }
+    .home-panel {
+      display: none;
+      margin-top: 18px;
+    }
+    .home-panel.active { display: block; }
+    .mini-panel {
+      background: rgba(255,255,255,.95);
+      color: var(--dark);
+      border-radius: 22px;
+      padding: 18px;
+      border: 3px solid rgba(255,255,255,.75);
+      box-shadow: 0 12px 25px rgba(0,0,0,.24);
+    }
+    .menu-list { margin: 10px auto; max-width: 760px; line-height: 1.55; }
+    .menu-list strong { color: #3b1678; }
+    .ranking-line { padding: 8px 10px; margin: 6px auto; max-width: 520px; border-radius: 12px; background: #eef2ff; color: #2a245a; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌍 Earth Invaders 👾</h1>
+    <p class="subtitle">Stop the aliens! Complete English missions and save Planet Earth.</p>
+    <div class="top-bar">
+      <button class="btn" onclick="toggleMusic()" id="musicButton">🎵 Music ON</button>
+      <div class="pill" id="globalScore">⭐ Score: 0</div>
+      <div class="pill" id="savedUnits">🛡️ Adventures saved: 0/7</div>
+      <button class="btn blue" onclick="resetGame()">Reset game</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="home" class="screen active">
+      <div class="card home-menu-card">
+        <div class="home-cover-full">
+          <img class="cover-image" src="a_colorful_cartoon_game_title_screen_poster_sty.png.png" alt="Earth Invaders game cover with funny aliens and spaceships" />
+          <div class="floating-ufo">🛸</div>
+          <div class="floating-alien">👾</div>
+          <div class="home-menu-overlay">
+            <div class="game-menu">
+              <button class="btn start-btn" onclick="startMissionFromHome()">▶ START MISSION</button>
+              <button class="btn purple" onclick="showHomePanel('optionsPanel')">⚙️ OPTIONS</button>
+              <button class="btn blue" onclick="showHomePanel('homeRankingPanel')">🏆 RANKING</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="optionsPanel" class="home-panel">
+        <div class="mini-panel">
+          <h2>⚙️ Options</h2>
+          <p><strong>Music:</strong> the background music plays only on this cover screen. Sound effects still play during the missions.</p>
+          <button class="btn" onclick="toggleMusic()" id="homeMusicButton">🎵 Music ON/OFF</button>
+          <button class="btn blue" onclick="resetGame()">Reset progress</button>
+          <button class="btn purple" onclick="showHomePanel('briefingPanel')">How to play</button>
+        </div>
+      </div>
+
+      <div id="briefingPanel" class="home-panel active">
+        <div class="mini-panel">
+          <h2>Mission briefing</h2>
+          <p><strong>The aliens want to conquer Earth.</strong> Complete English challenges to stop them.</p>
+          <div class="badge-row">
+            <span class="badge">1 Vocabulary scanner</span>
+            <span class="badge">2 Grammar shield</span>
+            <span class="badge">3 Final mission</span>
+          </div>
+          <p class="menu-list">Pass a level to unlock the next one. You need <strong>8 correct answers</strong> to pass each grammar or final mission.</p>
+        </div>
+      </div>
+
+      <div id="homeRankingPanel" class="home-panel">
+        <div class="mini-panel">
+          <h2>🏆 Local ranking</h2>
+          <div id="homeRankingList" class="small-note">No scores yet.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="map" class="screen">
+      <div class="mission-head">
+        <h2>Choose an adventure</h2>
+        <button class="btn blue" onclick="showHome()">Back</button>
+      </div>
+      <div id="unitGrid" class="unit-grid"></div>
+    </section>
+
+    <section id="game" class="screen">
+      <div class="card">
+        <div class="mission-head">
+          <div>
+            <h2 id="gameTitle">Adventure</h2>
+            <div id="levelBadges" class="badge-row"></div>
+          </div>
+          <button class="btn blue" onclick="showMap()">Map</button>
+        </div>
+        <div class="alien-status" id="alienStatus">The aliens are getting ready...</div>
+        <div class="progress-wrap"><div class="progress" id="progress"></div></div>
+        <div id="activityArea"></div>
+        <div id="feedback" class="feedback"></div>
+        <div id="gameActions" class="actions"></div>
+      </div>
+    </section>
+
+    <section id="final" class="screen">
+      <div class="card final-screen">
+        <div class="trophy">🏆</div>
+        <h2>Earth is safe!</h2>
+        <p>You stopped the aliens in all 7 adventures. Amazing teamwork!</p>
+        <div class="question-box">
+          <p class="prompt">Add your name to the ranking</p>
+          <input type="text" id="playerName" placeholder="Team name" />
+          <button class="btn green" onclick="saveRanking()">Save score</button>
+        </div>
+        <div class="question-box">
+          <p class="prompt">🏅 Local ranking</p>
+          <div id="rankingList" class="small-note">No scores yet.</div>
+        </div>
+        <button class="btn green" onclick="showMap()">Play again</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    let musicOn = true;
+    let musicCtx = null;
+    let musicTimer = null;
+    let currentScreen = 'home';
+
+    function getAudioContext() {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return null;
+      if (!musicCtx || musicCtx.state === 'closed') musicCtx = new AudioCtx();
+      if (musicCtx.state === 'suspended') musicCtx.resume();
+      return musicCtx;
+    }
+
+    function startMusic(screen = currentScreen) {
+      currentScreen = screen;
+      if (!musicOn) return;
+      stopMusic(false);
+      const ctx = getAudioContext();
+      if (!ctx) return;
+
+      const melodies = {
+        home: [392, .14, 494, .14, 587, .18, 494, .14, 659, .28, 0, .08, 587, .18, 494, .18],
+        map: [330, .16, 392, .16, 523, .22, 392, .16, 440, .18, 523, .26, 0, .08],
+        game: [440, .13, 440, .13, 440, .13, 349, .10, 523, .34, 440, .13, 349, .10, 523, .34, 440, .38, 0, .10, 659, .13, 659, .13, 659, .13, 698, .10, 523, .34, 415, .13, 349, .10, 523, .34, 440, .42],
+        final: [523, .15, 659, .15, 784, .15, 1046, .30, 784, .15, 1046, .15, 1318, .45]
+      };
+
+      const melody = melodies[screen] || melodies.home;
+      playBackgroundMelody(melody, screen === 'game' ? 0.045 : 0.035, () => startMusic(screen));
+    }
+
+    function playBackgroundMelody(sequence, volume, onEnd) {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      let t = ctx.currentTime + 0.03;
+      for (let i = 0; i < sequence.length; i += 2) {
+        const freq = sequence[i];
+        const len = sequence[i + 1];
+        if (freq > 0) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(freq, t);
+          gain.gain.setValueAtTime(0.0001, t);
+          gain.gain.exponentialRampToValueAtTime(volume, t + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + Math.max(0.03, len - 0.02));
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(t);
+          osc.stop(t + len);
+        }
+        t += len;
+      }
+      musicTimer = setTimeout(onEnd, Math.max(100, (t - ctx.currentTime) * 1000));
+    }
+
+    function stopMusic(closeCtx = true) {
+      if (musicTimer) clearTimeout(musicTimer);
+      musicTimer = null;
+      if (closeCtx && musicCtx) {
+        try { musicCtx.close(); } catch(e) {}
+        musicCtx = null;
+      }
+    }
+
+    function toggleMusic() {
+      musicOn = !musicOn;
+      document.getElementById('musicButton').textContent = musicOn ? '🎵 Music ON' : '🔇 Music OFF';
+      const homeBtn = document.getElementById('homeMusicButton');
+      if (homeBtn) homeBtn.textContent = musicOn ? '🎵 Music ON' : '🔇 Music OFF';
+      if (!musicOn) stopMusic();
+      else if (currentScreen === 'home') startMusic('home');
+    }
+
+    const units = [
+      { id:'starter', title:'Starter: Digital Planet', icon:'💬', story:'The aliens try to hack Earth communication!', grammar:[{type:'mc',q:'I ___ play games after school.',options:['often','yesterday','bigger','went'],answer:'often'},{type:'mc',q:'___ is your surname?',options:['What','When','Why','How old'],answer:'What'},{type:'mc',q:'___ are you from?',options:['Where','Who','How many','Why'],answer:'Where'},{type:'tf',q:'“Always” is an adverb of frequency.',answer:true},{type:'tf',q:'“Password” is a country.',answer:false},{type:'mc',q:'Choose the ICT word.',options:['chat','Kenya','usually','where'],answer:'chat'},{type:'mc',q:'I ___ post videos online.',options:['never','surname','Greece','who'],answer:'never'},{type:'tf',q:'“Who” is a question word.',answer:true},{type:'mc',q:'Choose the country.',options:['India','chat','password','surname'],answer:'India'},{type:'tf',q:'“Sometimes” means every day, with no exceptions.',answer:false}], final:[{q:'I never share my ___ online.',answer:'password'},{q:'My friend is from ___.',answer:'Kenya'},{q:'I can ___ with my friends online.',answer:'chat'},{q:'What is your ___?',answer:'surname',accept:['surname','name']},{q:'I sometimes post a ___ online.',answer:'video'},{q:'She is from the ___.',answer:'UK'},{q:'We often post a ___.',answer:'comment'},{q:'___ are you from?',answer:'Where'},{q:'___ is your name?',answer:'What'},{q:'I am from ___.',answer:'Thailand'}] },
+      { id:'unit1', title:'Unit 1: Adventure Sports', icon:'🏄', story:'The aliens attack the adventure camp!', grammar:[{type:'mc',q:'She ___ kayaking every summer.',options:['goes','is going','go','went'],answer:'goes'},{type:'mc',q:'Look! He ___ surfing now.',options:['is going','goes','go','went'],answer:'is going'},{type:'tf',q:'“He is climbing now” is present continuous.',answer:true},{type:'mc',q:'We ___ helmets for rock climbing.',options:['wear','wears','wearing','wore'],answer:'wear'},{type:'tf',q:'“She goes snowboarding” is present simple.',answer:true},{type:'mc',q:'Right now, I ___ a mask.',options:['am wearing','wear','wears','wore'],answer:'am wearing'},{type:'mc',q:'He usually ___ surfing on Saturday.',options:['goes','is going','go','going'],answer:'goes'},{type:'tf',q:'“They are kayaking now” talks about a routine.',answer:false},{type:'mc',q:'Choose the present continuous sentence.',options:['I am scuba diving now.','I go scuba diving.','I went diving.','I like diving.'],answer:'I am scuba diving now.'},{type:'tf',q:'“I wear boots” can be present simple.',answer:true}], final:[{q:'I wear a ___ on my head.',answer:'helmet'},{q:'She is wearing a ___ in the water.',answer:'wetsuit'},{q:'He is going rock climbing now. He needs a ___.',answer:'harness'},{q:'I use ___ on my feet to swim.',answer:'flippers'},{q:'Take a ___ for safety.',answer:'first-aid kit'},{q:'I wear a ___ to see underwater.',answer:'mask'},{q:'We use a ___ to climb.',answer:'rope'},{q:'He ___ kayaking every summer.',answer:'goes'},{q:'Look! She is ___ surfing.',answer:'going'},{q:'A ___ jacket helps you in the water.',answer:'life'}] },
+      { id:'unit2', title:'Unit 2: Endangered Animals', icon:'🐼', story:'The aliens want to steal animal habitats!', grammar:[{type:'mc',q:'A whale is ___ than a dolphin.',options:['bigger','more big','biggest','big'],answer:'bigger'},{type:'mc',q:'A snow leopard is ___ than a penguin.',options:['more dangerous','dangerouser','dangerousest','danger'],answer:'more dangerous'},{type:'tf',q:'For long adjectives, we often use “more”.',answer:true},{type:'mc',q:'A rhino is ___ than a lion.',options:['heavier','more heavy','heaviest','heavy'],answer:'heavier'},{type:'tf',q:'“More beautiful” is a comparative.',answer:true},{type:'mc',q:'A penguin is ___ than a whale.',options:['smaller','more small','smallest','small'],answer:'smaller'},{type:'mc',q:'Pollution is ___ than clean air.',options:['worse','better','good','best'],answer:'worse'},{type:'tf',q:'“Bigger” compares two things.',answer:true},{type:'mc',q:'A lion is ___ than a panda.',options:['faster','more fast','fastest','fast'],answer:'faster'},{type:'tf',q:'“More heavy” is the best comparative form.',answer:false}], final:[{q:'A polar bear lives in the ___.',answer:'polar region'},{q:'A ___ lives in the ocean.',answer:'whale'},{q:'A lion lives in the ___.',answer:'grasslands'},{q:'___ is dangerous for animals.',answer:'Pollution'},{q:'A giant ___ is endangered.',answer:'panda'},{q:'___ is illegal hunting.',answer:'Poaching'},{q:'An ___ is an endangered animal.',answer:'orangutan'},{q:'A whale is ___ than a dolphin.',answer:'bigger'},{q:'Loss of ___ is a big problem.',answer:'habitat'},{q:'A snow ___ lives in cold mountains.',answer:'leopard'}] },
+      { id:'unit3', title:'Unit 3: Green Spaces', icon:'🌳', story:'The aliens cover Earth with traffic jams!', grammar:[{type:'mc',q:'Yesterday, there ___ a lake here.',options:['was','were','are','is'],answer:'was'},{type:'mc',q:'There ___ many trees in the park.',options:['were','was','is','am'],answer:'were'},{type:'tf',q:'“Soil” is usually uncountable.',answer:true},{type:'mc',q:'Choose the uncountable noun.',options:['soil','trees','rocks','fields'],answer:'soil'},{type:'tf',q:'We use “there were” with plural nouns.',answer:true},{type:'mc',q:'There ___ a factory near the town.',options:['was','were','are','be'],answer:'was'},{type:'mc',q:'There ___ two streams.',options:['were','was','is','am'],answer:'were'},{type:'tf',q:'“Traffic jam” can be countable.',answer:true},{type:'mc',q:'Choose the countable noun.',options:['lake','clean air','soil','shade'],answer:'lake'},{type:'tf',q:'“There was trees” is correct.',answer:false}], final:[{q:'Trees give us ___.',answer:'shade'},{q:'Plants have ___ under the soil.',answer:'roots'},{q:'A tree has a strong ___.',answer:'trunk'},{q:'There ___ a traffic jam yesterday.',answer:'was'},{q:'There ___ many fields here.',answer:'were'},{q:'Plants grow in the ___.',answer:'soil'},{q:'A stream has ___.',answer:'water'},{q:'Green spaces give us clean ___.',answer:'air'},{q:'Animals need ___ in green spaces.',answer:'shelter'},{q:'A ___ has smoke from a factory.',answer:'chimney'}] },
+      { id:'unit4', title:'Unit 4: Film Studio', icon:'🎬', story:'The aliens enter the film studio!', grammar:[{type:'mc',q:'Yesterday, we ___ at the comedy.',options:['laughed','laugh','laughing','laughs'],answer:'laughed'},{type:'mc',q:'The actor sang ___.',options:['beautifully','beautiful','beauty','beautifuller'],answer:'beautifully'},{type:'tf',q:'Regular past simple often ends in -ed.',answer:true},{type:'mc',q:'They ___ after the film.',options:['clapped','clap','claps','clapping'],answer:'clapped'},{type:'tf',q:'“Quickly” is an adverb of manner.',answer:true},{type:'mc',q:'She acted ___.',options:['quickly','quick','quicker','quickest'],answer:'quickly'},{type:'mc',q:'He ___ loudly in the horror film.',options:['screamed','scream','screams','screaming'],answer:'screamed'},{type:'tf',q:'“Careful” is an adverb.',answer:false},{type:'mc',q:'The audience ___ happily.',options:['clapped','clap','clapping','claps'],answer:'clapped'},{type:'tf',q:'“Laughed” is past simple.',answer:true}], final:[{q:'The ___ tells actors what to do.',answer:'director'},{q:'In a horror film, people sometimes ___.',answer:'scream'},{q:'She acted ___.',answer:'quickly'},{q:'The ___ records the film.',answer:'camera operator'},{q:'Actors wear a ___.',answer:'costume'},{q:'The words are in the ___.',answer:'script'},{q:'Yesterday, we ___ at the comedy.',answer:'laughed'},{q:'They ___ after the musical.',answer:'clapped'},{q:'A science-fiction ___ can have aliens.',answer:'film'},{q:'The film ___ is where they record.',answer:'set'}] },
+      { id:'unit5', title:'Unit 5: Space Routines', icon:'🚀', story:'The aliens hide on the Moon base!', grammar:[{type:'mc',q:'Yesterday, I ___ dinner at 7 o’clock.',options:['ate','eat','eated','eats'],answer:'ate'},{type:'mc',q:'Astronauts ___ wear a space suit.',options:['have to','has to','had','having'],answer:'have to'},{type:'tf',q:'“Sent” is the past of “send”.',answer:true},{type:'mc',q:'She ___ a message yesterday.',options:['sent','send','sended','sends'],answer:'sent'},{type:'tf',q:'“Wrote” is regular past simple.',answer:false},{type:'mc',q:'Yesterday, he ___ in his diary.',options:['wrote','write','writed','writes'],answer:'wrote'},{type:'mc',q:'She ___ to bed late yesterday.',options:['went','go','goed','goes'],answer:'went'},{type:'tf',q:'“Have to” expresses obligation.',answer:true},{type:'mc',q:'He ___ exercise in space yesterday.',options:['did','do','does','doing'],answer:'did'},{type:'tf',q:'“Ate” is the past of “eat”.',answer:true}], final:[{q:'Astronauts put on a ___.',answer:'space suit'},{q:'On the Moon there is less ___.',answer:'gravity'},{q:'Yesterday, he ___ in his diary.',answer:'wrote'},{q:'The ___ pumps blood.',answer:'heart'},{q:'We need fresh ___ to drink.',answer:'water'},{q:'Exercise helps your ___.',answer:'muscles'},{q:'Yesterday, I ___ dinner.',answer:'ate'},{q:'Astronauts have to check the ___.',answer:'temperature'},{q:'She ___ a message yesterday.',answer:'sent'},{q:'I went to ___ at ten o’clock.',answer:'bed'}] },
+      { id:'unit6', title:'Unit 6: Travel Mission', icon:'🧳', story:'The aliens try to escape on holiday!', grammar:[{type:'mc',q:'I ___ visit a castle tomorrow.',options:['am going to','go','went','goes'],answer:'am going to'},{type:'mc',q:'___ you going to stay in a hotel?',options:['Are','Is','Do','Did'],answer:'Are'},{type:'tf',q:'“Going to” can talk about future plans.',answer:true},{type:'mc',q:'She ___ have a picnic.',options:['is going to','are going to','am going to','going'],answer:'is going to'},{type:'tf',q:'“Are you going to...?” is a future question.',answer:true},{type:'mc',q:'We ___ sleep in a tent.',options:['are going to','is going to','am going to','went to'],answer:'are going to'},{type:'mc',q:'___ he going to visit a castle?',options:['Is','Are','Do','Did'],answer:'Is'},{type:'tf',q:'“I went to a theme park tomorrow” is correct future.',answer:false},{type:'mc',q:'They ___ go on holiday next week.',options:['are going to','is going to','am going to','goes to'],answer:'are going to'},{type:'tf',q:'“She is going to stay in a hotel” is future.',answer:true}], final:[{q:'I need my ___ to travel.',answer:'passport'},{q:'We are going to walk on a mountain ___.',answer:'trail'},{q:'Are you ___ go on holiday?',answer:'going to'},{q:'We are going to stay in a ___.',answer:'hotel'},{q:'I drink from my water ___.',answer:'bottle'},{q:'A ___ tells you about places.',answer:'guidebook'},{q:'We are going to visit a ___.',answer:'castle'},{q:'The main city is the ___ city.',answer:'capital'},{q:'We can see paintings in an art ___.',answer:'gallery'},{q:'They are going to have a ___.',answer:'picnic'}] }
+    ];
+
+    const PASS_SCORE = 8;
+    const QUESTIONS_PER_LEVEL = 10;
+    const memoryPairs = {
+      starter:[['Greece','🇬🇷'],['India','🇮🇳'],['Kenya','🇰🇪'],['Thailand','🇹🇭']],
+      unit1:[['helmet','head'],['flippers','feet'],['mask','face'],['rope','climb']],
+      unit2:[['whale','ocean'],['polar bear','polar region'],['lion','grasslands'],['pollution','danger']],
+      unit3:[['factory','chimney'],['tree','trunk'],['plant','roots'],['stream','water']],
+      unit4:[['comedy','laugh'],['horror film','scream'],['musical','sing'],['director','film']],
+      unit5:[['Moon','gravity'],['heart','blood'],['space suit','astronaut'],['diary','write']],
+      unit6:[['passport','travel'],['hotel','stay'],['tent','sleep'],['castle','visit']]
+    };
+
+    let state = loadState();
+    let currentUnit = null;
+    let currentLevel = 1;
+    let questions = [];
+    let questionIndex = 0;
+    let correctCount = 0;
+    let locked = false;
+    let memory = { first:null, second:null, matched:0, busy:false };
+
+    function loadState() {
+      const saved = localStorage.getItem('earthInvadersState');
+      const base = saved ? JSON.parse(saved) : { score:0, progress:{} };
+      units.forEach(u => { if (!base.progress[u.id]) base.progress[u.id] = { unlockedLevel:1, completed:[] }; });
+      return base;
+    }
+
+    function saveState() {
+      localStorage.setItem('earthInvadersState', JSON.stringify(state));
+      updateTopBar();
+    }
+
+    function updateTopBar() {
+      document.getElementById('globalScore').textContent = `⭐ Score: ${state.score}`;
+      const saved = units.filter(u => state.progress[u.id].completed.includes(3)).length;
+      document.getElementById('savedUnits').textContent = `🛡️ Adventures saved: ${saved}/7`;
+    }
+
+    function showScreen(id) {
+      currentScreen = id;
+      if (id === 'home') startMusic('home');
+      else stopMusic(false);
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+      window.scrollTo({ top:0, behavior:'smooth' });
+    }
+
+    function showHome() {
+      updateTopBar();
+      renderHomeRanking();
+      showScreen('home');
+    }
+
+    function startMissionFromHome() {
+      playSuccess();
+      showMap();
+    }
+
+    function showHomePanel(panelId) {
+      document.querySelectorAll('#home .home-panel').forEach(panel => panel.classList.remove('active'));
+      const panel = document.getElementById(panelId);
+      if (panel) panel.classList.add('active');
+      if (panelId === 'homeRankingPanel') renderHomeRanking();
+    }
+
+    function showMap() { renderMap(); updateTopBar(); showScreen('map'); }
+
+    function renderMap() {
+      const grid = document.getElementById('unitGrid');
+      grid.innerHTML = units.map(unit => {
+        const p = state.progress[unit.id];
+        const dots = [1,2,3].map(n => `<span class="dot ${p.completed.includes(n) ? 'done' : ''}">${p.completed.includes(n) ? '✓' : n}</span>`).join('');
+        return `<article class="unit-card"><div><div class="unit-icon">${unit.icon}</div><div class="unit-title">${unit.title}</div><div class="unit-desc">${unit.story}</div><div class="dots">${dots}</div></div><button class="btn purple" onclick="openUnit('${unit.id}')">${p.completed.includes(3) ? 'Replay adventure' : 'Play adventure'}</button></article>`;
+      }).join('');
+    }
+
+    function openUnit(id) {
+      currentUnit = units.find(u => u.id === id);
+      startLevel(Math.min(state.progress[id].unlockedLevel, 3));
+    }
+
+    function startLevel(level) {
+      if (!currentUnit) return;
+      const p = state.progress[currentUnit.id];
+      if (level > p.unlockedLevel) return;
+      currentLevel = level;
+      questionIndex = 0;
+      correctCount = 0;
+      locked = false;
+      document.getElementById('gameTitle').textContent = `${currentUnit.icon} ${currentUnit.title}`;
+      document.getElementById('feedback').textContent = '';
+      document.getElementById('gameActions').innerHTML = '';
+      renderBadges();
+      updateAlienStatus();
+      if (level === 1) renderMemoryLevel();
+      if (level === 2) { questions = shuffle([...currentUnit.grammar]).slice(0, QUESTIONS_PER_LEVEL); renderQuizQuestion(); }
+      if (level === 3) { questions = shuffle([...currentUnit.final]).slice(0, QUESTIONS_PER_LEVEL); renderQuizQuestion(); }
+      showScreen('game');
+    }
+
+    function renderBadges() {
+      const p = state.progress[currentUnit.id];
+      const labels = ['Vocabulary scanner','Grammar shield','Final mission'];
+      document.getElementById('levelBadges').innerHTML = [1,2,3].map(n => {
+        const icon = p.completed.includes(n) ? '✅' : n <= p.unlockedLevel ? '🔓' : '🔒';
+        return `<button class="btn ${n === currentLevel ? 'green' : 'blue'}" ${n > p.unlockedLevel ? 'disabled' : ''} onclick="startLevel(${n})">${icon} ${labels[n-1]}</button>`;
+      }).join('');
+    }
+
+    function updateAlienStatus() {
+      const msg = currentLevel === 1 ? 'Vocabulary scanner: find the secret pairs!' : currentLevel === 2 ? 'Grammar shield: choose carefully!' : 'Final mission: stop the invasion!';
+      document.getElementById('alienStatus').textContent = msg;
+    }
+
+    function setProgress(value) { document.getElementById('progress').style.width = `${Math.max(0, Math.min(100, value))}%`; }
+
+    function renderMemoryLevel() {
+      memory = { first:null, second:null, matched:0, busy:false };
+      setProgress(0);
+      const cards = shuffle(memoryPairs[currentUnit.id].flatMap((pair, i) => [{text:pair[0], pair:i}, {text:pair[1], pair:i}]));
+      document.getElementById('activityArea').innerHTML = `<div class="question-box"><p class="prompt">Match the pairs. Find 4 matches!</p><p class="example"><strong>Example:</strong> helmet ↔ head</p><div class="memory-grid">${cards.map(c => `<button class="memory-card" data-pair="${c.pair}" data-text="${escapeHtml(c.text)}" onclick="flipCard(this)">?</button>`).join('')}</div></div>`;
+    }
+
+    function flipCard(card) {
+      if (memory.busy || card.classList.contains('matched') || card.classList.contains('revealed')) return;
+      card.textContent = card.dataset.text;
+      card.classList.add('revealed');
+      if (!memory.first) { memory.first = card; return; }
+      memory.second = card;
+      memory.busy = true;
+      if (memory.first.dataset.pair === memory.second.dataset.pair) {
+        playSuccess();
+        memory.first.classList.add('matched'); memory.second.classList.add('matched');
+        memory.first.classList.remove('revealed'); memory.second.classList.remove('revealed');
+        memory.matched++; state.score += 10;
+        document.getElementById('feedback').textContent = 'Great match! 👽💥';
+        memory.first = null; memory.second = null; memory.busy = false;
+        setProgress(memory.matched / 4 * 100);
+        saveState();
+        if (memory.matched === 4) completeLevel();
+      } else {
+        playError();
+        document.getElementById('feedback').textContent = 'Try again!';
+        setTimeout(() => {
+          memory.first.textContent = '?'; memory.second.textContent = '?';
+          memory.first.classList.remove('revealed'); memory.second.classList.remove('revealed');
+          memory.first = null; memory.second = null; memory.busy = false;
+        }, 800);
+      }
+    }
+
+    function renderQuizQuestion() {
+      locked = false;
+      setProgress(questionIndex / QUESTIONS_PER_LEVEL * 100);
+      const q = questions[questionIndex];
+      document.getElementById('feedback').textContent = '';
+      document.getElementById('gameActions').innerHTML = '';
+      if (!q) { completeLevel(); return; }
+      if (q.type === 'tf') {
+        document.getElementById('activityArea').innerHTML = `<div class="question-box"><p class="prompt">True or false?</p><p class="example"><strong>Sentence:</strong> ${escapeHtml(q.q)}</p><div class="options"><button class="option" onclick="checkTrueFalse(this, true)">True</button><button class="option" onclick="checkTrueFalse(this, false)">False</button></div></div>`;
+        return;
+      }
+      if (q.options) {
+        document.getElementById('activityArea').innerHTML = `<div class="question-box"><p class="prompt">${escapeHtml(q.q)}</p><p class="example"><strong>Example:</strong> Read the sentence and choose the correct option.</p><div class="options">${shuffle([...q.options]).map(opt => `<button class="option" onclick="checkOption(this, '${escapeJs(q.answer)}')">${escapeHtml(opt)}</button>`).join('')}</div></div>`;
+      } else {
+        document.getElementById('activityArea').innerHTML = `<div class="question-box"><p class="prompt">${escapeHtml(q.q)}</p><p class="example"><strong>Example:</strong> Type one word or short answer.</p><input type="text" id="textAnswer" placeholder="Type your answer" onkeydown="if(event.key==='Enter') checkTextAnswer('${escapeJs(q.answer)}')" /> <button class="btn green" onclick="checkTextAnswer('${escapeJs(q.answer)}')">Check</button></div>`;
+        setTimeout(() => document.getElementById('textAnswer')?.focus(), 100);
+      }
+    }
+
+    function checkTrueFalse(btn, value) {
+      if (locked) return;
+      locked = true;
+      const q = questions[questionIndex];
+      const options = document.querySelectorAll('.option');
+      options.forEach(b => b.disabled = true);
+      if (value === q.answer) {
+        btn.classList.add('correct'); correctCount++; state.score += 15; playSuccess();
+        document.getElementById('feedback').textContent = 'Correct! Alien shield damaged! ⚡';
+      } else {
+        btn.classList.add('wrong');
+        options.forEach(b => { if ((b.textContent === 'True' && q.answer === true) || (b.textContent === 'False' && q.answer === false)) b.classList.add('correct'); });
+        playError();
+        document.getElementById('feedback').textContent = `Almost! Correct answer: ${q.answer ? 'True' : 'False'}`;
+      }
+      saveState(); nextButton();
+    }
+
+    function checkOption(btn, answer) {
+      if (locked) return;
+      locked = true;
+      const options = document.querySelectorAll('.option');
+      options.forEach(b => b.disabled = true);
+      if (clean(btn.textContent) === clean(answer)) {
+        btn.classList.add('correct'); correctCount++; state.score += 15; playSuccess();
+        document.getElementById('feedback').textContent = 'Correct! Alien plan failed! 🚀';
+      } else {
+        btn.classList.add('wrong');
+        options.forEach(b => { if (clean(b.textContent) === clean(answer)) b.classList.add('correct'); });
+        playError();
+        document.getElementById('feedback').textContent = `Almost! Correct answer: ${answer}`;
+      }
+      saveState(); nextButton();
+    }
+
+    function checkTextAnswer(answer) {
+      if (locked) return;
+      const input = document.getElementById('textAnswer');
+      const value = input.value;
+      if (!value.trim()) return;
+
+      locked = true;
+      input.disabled = true;
+
+      const q = questions[questionIndex];
+      const result = validateOpenAnswer(q, value);
+
+      if (result.correct) {
+        correctCount++;
+        state.score += result.points;
+        playSuccess();
+        document.getElementById('feedback').textContent = result.message;
+      } else {
+        playError();
+        document.getElementById('feedback').textContent = `Good try! One correct answer: ${answer}`;
+      }
+
+      saveState();
+      nextButton();
+    }
+
+    function normalizeAnswer(text) {
+      return String(text || '')
+        .toLowerCase()
+        .trim()
+        .replace(/[.,!?¿¡]/g, '')
+        .replace(/[’]/g, "'")
+        .replace(/\s+/g, ' ');
+    }
+
+    function validateOpenAnswer(q, value) {
+      const v = normalizeAnswer(value);
+      const a = normalizeAnswer(q.answer);
+      const prompt = normalizeAnswer(q.q);
+
+      const countries = [
+        'spain','france','italy','germany','portugal','england','ireland','scotland','wales',
+        'uk','the uk','united kingdom','usa','the usa','united states','canada','mexico',
+        'brazil','argentina','india','china','japan','kenya','thailand','greece','egypt',
+        'australia','morocco','colombia','peru','chile','romania','poland','netherlands'
+      ];
+
+      // 1. Respostes múltiples definides a la pregunta
+      if (q.accept && Array.isArray(q.accept)) {
+        const accepted = q.accept.map(normalizeAnswer);
+        if (accepted.includes(v) || accepted.some(item => v.includes(item))) {
+          return { correct: true, points: 15, message: 'Perfect answer! 🌟' };
+        }
+      }
+
+      // 2. Starter: What is your name/surname?
+      if (prompt.includes('what is your')) {
+        if (v.includes('name') || v.includes('surname')) {
+          return { correct: true, points: 15, message: 'Correct! Identity confirmed! 👽' };
+        }
+      }
+
+      // 3. Frases amb països: I'm from..., She is from..., My friend is from...
+      if (prompt.includes('from') || a === 'kenya' || a === 'thailand' || a === 'uk') {
+        const hasFrom = v.includes('from');
+        const hasCountry = countries.some(country => v.includes(country));
+        if (hasFrom && hasCountry) {
+          return { correct: true, points: 15, message: 'Great sentence! 🌍' };
+        }
+        if (hasCountry) {
+          return { correct: true, points: 10, message: 'Good! Try a full sentence next time.' };
+        }
+      }
+
+      // 4. Correcció flexible: accepta la paraula clau dins d'una resposta més llarga
+      if (v.includes(a)) {
+        return { correct: true, points: 15, message: 'Correct! Shield activated! 🛡️' };
+      }
+
+      return { correct: false, points: 0, message: 'Try again!' };
+    }
+
+    // Mantinc aquest nom per compatibilitat amb possibles crides antigues.
+    function isValidAnswer(q, value) {
+      return validateOpenAnswer(q, value).correct;
+    }
+
+    function nextButton() {
+      document.getElementById('gameActions').innerHTML = `<button class="btn green" onclick="nextQuestion()">Next</button>`;
+    }
+
+    function nextQuestion() {
+      questionIndex++;
+      if (questionIndex >= QUESTIONS_PER_LEVEL) {
+        completeLevel();
+      } else {
+        renderQuizQuestion();
+      }
+    }
+
+    function completeLevel() {
+      const p = state.progress[currentUnit.id];
+      setProgress(100);
+
+      if (!p.completed.includes(currentLevel)) {
+        p.completed.push(currentLevel);
+      }
+      if (currentLevel < 3) {
+        p.unlockedLevel = Math.max(p.unlockedLevel, currentLevel + 1);
+      }
+
+      saveState();
+      renderBadges();
+
+      const passed = currentLevel === 1 || correctCount >= PASS_SCORE;
+      const levelName = currentLevel === 1 ? 'Vocabulary scanner' : currentLevel === 2 ? 'Grammar shield' : 'Final mission';
+
+      if (!passed && currentLevel !== 1) {
+        document.getElementById('feedback').textContent = `You got ${correctCount}/${QUESTIONS_PER_LEVEL}. Try again to unlock the next mission!`;
+        document.getElementById('gameActions').innerHTML = `<button class="btn green" onclick="startLevel(${currentLevel})">Try again</button><button class="btn blue" onclick="showMap()">Map</button>`;
+        return;
+      }
+
+      document.getElementById('feedback').textContent = `${levelName} complete! 🎉`;
+
+      if (currentLevel < 3) {
+        document.getElementById('gameActions').innerHTML = `<button class="btn green" onclick="startLevel(${currentLevel + 1})">Next level</button><button class="btn blue" onclick="showMap()">Map</button>`;
+      } else {
+        const saved = units.filter(u => state.progress[u.id].completed.includes(3)).length;
+        if (saved >= units.length) {
+          document.getElementById('gameActions').innerHTML = `<button class="btn green" onclick="showFinal()">Final screen</button><button class="btn blue" onclick="showMap()">Map</button>`;
+          setTimeout(showFinal, 900);
+        } else {
+          document.getElementById('gameActions').innerHTML = `<button class="btn green" onclick="showMap()">Choose another adventure</button>`;
+        }
+      }
+    }
+
+    function showFinal() {
+      renderRanking();
+      showScreen('final');
+    }
+
+    function saveRanking() {
+      const input = document.getElementById('playerName');
+      const name = (input.value || 'Team').trim();
+      const ranking = JSON.parse(localStorage.getItem('earthInvadersRanking') || '[]');
+
+      ranking.push({ name, score: state.score, date: new Date().toLocaleDateString() });
+      ranking.sort((a, b) => b.score - a.score);
+      localStorage.setItem('earthInvadersRanking', JSON.stringify(ranking.slice(0, 10)));
+
+      input.value = '';
+      renderRanking();
+      renderHomeRanking();
+      document.getElementById('feedback').textContent = '';
+    }
+
+    function renderRanking() {
+      const list = document.getElementById('rankingList');
+      if (!list) return;
+      const ranking = JSON.parse(localStorage.getItem('earthInvadersRanking') || '[]');
+
+      if (!ranking.length) {
+        list.textContent = 'No scores yet.';
+        return;
+      }
+
+      list.innerHTML = ranking
+        .map((item, index) => `<div><strong>${index + 1}. ${escapeHtml(item.name)}</strong> — ${item.score} points <span>(${escapeHtml(item.date)})</span></div>`)
+        .join('');
+    }
+
+
+    function renderHomeRanking() {
+      const list = document.getElementById('homeRankingList');
+      if (!list) return;
+      const ranking = JSON.parse(localStorage.getItem('earthInvadersRanking') || '[]');
+
+      if (!ranking.length) {
+        list.textContent = 'No scores yet.';
+        return;
+      }
+
+      list.innerHTML = ranking
+        .map((item, index) => `<div class="ranking-line"><strong>${index + 1}. ${escapeHtml(item.name)}</strong> — ${item.score} points <span>(${escapeHtml(item.date)})</span></div>`)
+        .join('');
+    }
+
+    function resetGame() {
+      if (!confirm('Reset all progress and score?')) return;
+      localStorage.removeItem('earthInvadersState');
+      state = loadState();
+      currentUnit = null;
+      currentLevel = 1;
+      questions = [];
+      questionIndex = 0;
+      correctCount = 0;
+      updateTopBar();
+      showHome();
+    }
+
+    function playSuccess() {
+      playEffect([523, 659, 784], 0.08, 'triangle', 0.12);
+    }
+
+    function playError() {
+      playEffect([220, 180], 0.12, 'sawtooth', 0.10);
+    }
+
+    function playEffect(notes, length = 0.1, type = 'square', volume = 0.12) {
+      const ctx = getAudioContext();
+      if (!ctx) return;
+      let t = ctx.currentTime + 0.01;
+      notes.forEach(freq => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(volume, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + length);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + length);
+        t += length;
+      });
+    }
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    function clean(text) {
+      return normalizeAnswer(text);
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function escapeJs(text) {
+      return String(text)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, '\\n')
+        .replace(/\r/g, '');
+    }
+
+    updateTopBar();
+    renderRanking();
+    renderHomeRanking();
+  </script>
+</body>
+</html>
